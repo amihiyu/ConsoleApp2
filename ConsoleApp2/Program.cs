@@ -57,7 +57,8 @@ namespace ConsoleApp2
         private static void TextWrite()
         { // テキスト出力を行う。
             string pathname = @"C:\develop" + @"\" + DateTime.Now.ToString("yyyy年MM月dd日HHmmss") + ".txt";
-            Console.WriteLine("TextWrite(1) pathname =<{0}>", pathname);
+            System.Diagnostics.Debug.WriteLine($"DEBUG:TextWrite(1):pathname =<{pathname}>");
+            Console.WriteLine($"TextWrite(1) pathname =<{pathname}>");
             using StreamWriter sw = new StreamWriter(pathname);
             ExcelDataRead(sw);
             sw.Close();
@@ -70,6 +71,8 @@ namespace ConsoleApp2
             string pathnameDestination2 = @"\Users\hiroy\OneDrive\backup\CSharp\" + filename;
             File.Copy(pathnameSource, pathnameDestination1);
             File.Copy(pathnameSource, pathnameDestination2);
+            System.Diagnostics.Debug.WriteLine($"DEBUG:CopySourceFile(1):{pathnameDestination1}");
+            System.Diagnostics.Debug.WriteLine($"DEBUG:CopySourceFile(2):{pathnameDestination2}");
             Console.WriteLine(pathnameDestination1);
             Console.WriteLine(pathnameDestination1);
         }
@@ -77,10 +80,12 @@ namespace ConsoleApp2
         {
             System.Diagnostics.Stopwatch sw = new System.Diagnostics.Stopwatch();
             sw.Start();
+            System.Diagnostics.Debug.WriteLine($"DEBUG:Main(1):Test debug write");
             Console.WriteLine("Hello World!");
             CopySourceFile();
             TextWrite();
-            Console.WriteLine($"{sw.ElapsedMilliseconds}msec");
+			Console.WriteLine($"{sw.ElapsedMilliseconds}msec");
+            System.Diagnostics.Debug.WriteLine($"DEBUG:Main(2):time={sw.ElapsedMilliseconds}msec");
             sw.Stop();
             Console.ReadKey();
         }
