@@ -27,6 +27,84 @@ namespace ConsoleApp2
             }
         }
 
+        // {日付(年＋月):string,仕入金額合計:int}の配列 // 文字列がいいか、年月に特定の配列箇所を割り当てるか？
+        // 高速になるので、年月に特定の配列箇所を割り当てる。2000年1月～2039年12月で40x12=480配列。
+
+        const int START_YEAR = 2000;
+        const int END_YEAR = 2039;
+        const int MONTHS = (END_YEAR - START_YEAR + 1)*12;      // 2000年1月～2039年12月で40x12=480配列。
+        const int SHEETS = 256;                                 // シートの数の最大値。仮に256個。
+
+		private static int String2MONTHS(string s){
+            int length = s.Length;
+            if(length < 9){
+                System.Diagnostics.Debug.WriteLine($"DEBUG:StringMONTHS(1):ERROR:too small length=<{length}>,s<{s}>");
+                return -1;
+			}
+            DateTime dt = DateTime.Parse(s);
+            if(dt.Year < START_YEAR){
+                System.Diagnostics.Debug.WriteLine($"DEBUG:StringMONTHS(2):ERROR:dt.Year is not in range=<{START_YEAR}<={dt.Year}<={END_YEAR}>");
+                return -1;
+			}
+            int months = (dt.Year - 2000) * 12 + dt.Month;
+            return months;
+		}
+        private class Purchasing
+        {
+            int nSheet;                                     // 現在のシート数
+            string[] sheet = new string[SHEETS];            // シート名
+			int[,] sumYen = new int[SHEETS,MONTHS];         // 仕入金額合計(月別の配列)
+
+			public Purchasing(){ // 初期化
+                nSheet = 0;
+			}
+            public void NewSheet(string sheet){ // 新たなシートを登録
+                if(0 <= nSheet & nSheet < SHEETS){
+                    this.sheet[nSheet] = sheet;
+                    nSheet++;
+				}else{ 
+                    System.Diagnostics.Debug.WriteLine($"DEBUG:ERROR:Purchasing(1) 配列範囲外 nSheet=<{nSheet}>");
+                }
+			}
+            public void AddSum(int ym, int yen){ // 現在のシートの年月の所の仕入金額を増額
+                if(0 <= nSheet && nSheet < SHEETS && 0 <= ym && ym < MONTHS){
+                    this.sumYen[nSheet - 1,ym] += yen;
+				}else{
+                    if(!(0 <= nSheet & nSheet < SHEETS)){
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:ERROR:Purchasing(2) 配列範囲外 nSheet=<{nSheet}>");
+					}
+                    if(!(0 <= ym & ym < MONTHS)){
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:ERROR:Purchasing(3) 配列範囲外 ym=<{ym}>");
+					}
+				}
+			}
+            public string GetNowSheetName(){
+                if(!(1 <= nSheet & nSheet <= SHEETS)){
+                    System.Diagnostics.Debug.WriteLine($"DEBUG:ERROR:Purchasing(4) 配列範囲外 nSheet=<{nSheet}>");
+                    return null;
+                }else{
+                    return sheet[nSheet-1];
+                }
+                
+			}
+            public void DisplayNowSheet(){
+                if(!(0 <= nSheet & nSheet < SHEETS)){
+                    System.Diagnostics.Debug.WriteLine($"DEBUG:ERROR:DisplyNowSheet(1) 配列範囲外 nSheet=<{nSheet}>");
+                }else{
+                    string s = GetNowSheetName();
+                    if(s != null){
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:DisplyNowSheet(2) シート数<{nSheet}>,シート名=<{s}>");
+                        for(int ym = 0; ym < MONTHS; ym++){
+                            int sy = sumYen[nSheet-1, ym];
+                            if(sy != 0){
+                                System.Diagnostics.Debug.WriteLine($"DEBUG:DisplyNowSheet(3) nSheet=<{nSheet}> SheetName=<{s}> ym=<{ym / 12},{ym % 12}>, sy=<{sy}>");
+							}
+						}
+					}
+                }
+			}
+		}
+
         // ds(Excelのデータ) ⇒ まとめにあるように、「日付」を見て「仕入金額」を月別に合計して ⇒ sw(ファイルへ出力)
         // 1. シート毎(foreach DataTable)に、(ただし「まとめ」シートは除く)
         // 2. 先頭行から、「日付」と「仕入金額」の列を探し出して、dayとyenに列番号を入れる。
@@ -35,7 +113,7 @@ namespace ConsoleApp2
         // 5. シート毎に、各月(day)と仕入金額(yen)の合計を出力する。
         // Gitのmessage"自動決算/仕入帳/まとめの代わりを作る/月別の仕入金額合計を作る/SumPurchasing()
         // 月別の仕入金額合計を作るの次は、別のシートを使い、完成マーク毎の仕入金額合計を作る。
-        private static void SumPurchasing(DataSet ds, StreamWriter sw) // Purchasing=仕入
+        private static void SumPurchasing(Purchasing purchase, DataSet ds, StreamWriter sw) // Purchasing=仕入
         {
             foreach (DataTable tbl in ds.Tables)
             {
@@ -44,8 +122,8 @@ namespace ConsoleApp2
                 // 2. 先頭行から、「日付」と「仕入金額」の列を探し出して、dayColumnとyenColumnに列番号を入れる。
 
                 var TopRow = tbl.Rows[0];
-                var dayColumn = -1;
-                var yenColumn = -1;
+                int dayColumn = -1;
+                int yenColumn = -1;
                 for (var i = 0; i < tbl.Columns.Count; i++)
                 {
                     if(TopRow[i].Equals("日付"))
@@ -62,18 +140,66 @@ namespace ConsoleApp2
                 System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(3):dayColumn =<{tbl.TableName}><{dayColumn}>");
                 System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(4):yenColumn =<{tbl.TableName}><{yenColumn}>");
 
-                foreach (DataRow row in tbl.Rows)
-                {
-                    for (var i = 0; i < tbl.Columns.Count; i++)
-                    {
-                        sw.Write($"{row[i]} ");
+                // 3. 「日付」は、テキストで 「yyyy/mm/dd」形式なので、前の7文字が共通な文字列は同じ月と考える。
+
+                if(dayColumn >= 0 && yenColumn >= 0){
+//                    System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(5):");
+                    purchase.NewSheet(tbl.TableName);
+  //                  System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(6):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                    for(int j = 1; j < tbl.Rows.Count; j++){
+    //                    System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(6-1):j=<{j}>");
+                        DataRow row = tbl.Rows[j];
+      //                  System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(6-2):row=<{row}>");
+                        if(row[dayColumn] == null){
+        //                     System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(7):tbl.Rows.Count=<{tbl.Rows.Count}>");
+						}else{ 
+          //                   System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(7-1):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                            string dayString = row[dayColumn].ToString();
+            //                 System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(7-2):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                            if(dayString.Length < 10){
+              //                  System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(8):tbl.Rows.Count=<{tbl.Rows.Count}>");
+						    }else{
+                //                System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(8-1):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                int ym = String2MONTHS(dayString);
+                  //              System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(8-2):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                if(row[yenColumn] == null){
+                    //                 System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(9):tbl.Rows.Count=<{tbl.Rows.Count}>");
+						        }else{
+                      //               System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(9-1):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                    string yenString = row[yenColumn].ToString();
+                        //             System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(9-2):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                    if(yenString == null){
+                          //              System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10):tbl.Rows.Count=<{tbl.Rows.Count}>");
+						            }else{ 
+                            //            System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-1):yenString=<{yenString}>");
+                                        try{
+                                            if(yenString.Equals("")){
+                              //                System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-2):tbl.Rows.Count=<{tbl.Rows.Count}>");
+											}else{
+                                                double dyen = double.Parse(yenString);
+                                                int yen = Convert.ToInt32(dyen);
+                              //                  int yen = int.Parse(dyen);
+                                              System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-3):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                                if(ym > 0 & yen != 0){
+                    //                                purchase.AddSum(ym, yen);
+				    		                    }
+                                            }
+                                        }catch(Exception e){
+                                            System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(11):yenString=<{yenString}> e=<{e}>");
+										}
+                                    }
+                                }
+                                // dayColumnやyenColumnに情報が無い場合、例外がスローされるみたい。
+                            }
+                        }
                     }
-                    sw.WriteLine("");
-                }
+                    purchase.DisplayNowSheet();
+				}
             }
         }
-        private static void ExcelDataRead(StreamWriter sw)
+        private static void AnalyzeExcelData(StreamWriter sw)
         { // ExcelDataReaderというライブラリを使ってExcelファイルを読む。
+            Purchasing purchase = new Purchasing();
             try
             {
                 string path = @"C:\develop\Excel";
@@ -82,7 +208,7 @@ namespace ConsoleApp2
                 {
                     if (filenames.Contains('~'))
                     {
-                        sw.WriteLine($"ExcelDataRead(1):<{filenames}> エクセルのテンポラリーファイルです。");
+                        sw.WriteLine($"AnalyzeExcelData(1):<{filenames}> エクセルのテンポラリーファイルです。");
                     }
                     else
                     {
@@ -91,13 +217,16 @@ namespace ConsoleApp2
                         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
                         using IExcelDataReader reader = ExcelReaderFactory.CreateReader(stream);
                         DataSet ds = reader.AsDataSet();
-                        SumPurchasing(ds, sw);
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:AnalyzeExcelData(1): befor SumPurchasing()");
+                        SumPurchasing(purchase, ds, sw);
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:AnalyzeExcelData(2): after SumPurchasing()");
                     }
                 }
             }
             catch (Exception e)
             {
-                sw.WriteLine($"ExcelDataRead(3):ERROR<{e.Message}>");
+                System.Diagnostics.Debug.WriteLine($"DEBUG:AnalyzeExcelData(3):e=<{e}>");
+                sw.WriteLine($"AnalyzeExcelData(3):ERROR<{e.Message}>");
             }
         }
         private static void TextWrite()
@@ -106,7 +235,7 @@ namespace ConsoleApp2
             System.Diagnostics.Debug.WriteLine($"DEBUG:TextWrite(1):pathname =<{pathname}>");
             Console.WriteLine($"TextWrite(1) pathname =<{pathname}>");
             using StreamWriter sw = new StreamWriter(pathname);
-            ExcelDataRead(sw);
+            AnalyzeExcelData(sw);
             sw.Close();
         }
         private static void CopySourceFile()
