@@ -33,11 +33,35 @@ namespace ConsoleApp2
         // 3. 「日付」は、テキストで 「yyyy/mm/dd」形式なので、前の7文字が共通な文字列は同じ月と考える。
         // 4. 月(day)と仕入金額(yen)の構造体の配列を作り、仕入金額(yen)を月毎に合計していく。
         // 5. シート毎に、各月(day)と仕入金額(yen)の合計を出力する。
+        // Gitのmessage"自動決算/仕入帳/まとめの代わりを作る/月別の仕入金額合計を作る/SumPurchasing()
+        // 月別の仕入金額合計を作るの次は、別のシートを使い、完成マーク毎の仕入金額合計を作る。
         private static void SumPurchasing(DataSet ds, StreamWriter sw) // Purchasing=仕入
         {
             foreach (DataTable tbl in ds.Tables)
             {
                 sw.WriteLine($"TABLE {tbl.TableName}");
+
+                // 2. 先頭行から、「日付」と「仕入金額」の列を探し出して、dayColumnとyenColumnに列番号を入れる。
+
+                var TopRow = tbl.Rows[0];
+                var dayColumn = -1;
+                var yenColumn = -1;
+                for (var i = 0; i < tbl.Columns.Count; i++)
+                {
+                    if(TopRow[i].Equals("日付"))
+                    {
+                        dayColumn = i;
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(1):dayColumn =<{tbl.TableName}><{dayColumn}>");
+					}
+                    if(TopRow[i].Equals("仕入金額"))
+                    {
+                        yenColumn = i;
+                        System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(2):yenColumn =<{tbl.TableName}><{yenColumn}>");
+					}
+                }
+                System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(3):dayColumn =<{tbl.TableName}><{dayColumn}>");
+                System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(4):yenColumn =<{tbl.TableName}><{yenColumn}>");
+
                 foreach (DataRow row in tbl.Rows)
                 {
                     for (var i = 0; i < tbl.Columns.Count; i++)
