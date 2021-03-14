@@ -12,15 +12,37 @@ namespace ConsoleApp2
     class Program
     {
         private static void ReadExcelDataSet(DataSet ds, StreamWriter sw)
-        {
+        { // ds(Excelのデータ) ⇒ sw(ファイルへ出力)
             foreach (DataTable tbl in ds.Tables)
             {
-                sw.WriteLine("TABLE {0}", tbl.TableName);
+                sw.WriteLine($"TABLE {tbl.TableName}");
                 foreach (DataRow row in tbl.Rows)
                 {
                     for (var i = 0; i < tbl.Columns.Count; i++)
                     {
-                        sw.Write("{0} ", row[i]);
+                        sw.Write($"{row[i]} ");
+                    }
+                    sw.WriteLine("");
+                }
+            }
+        }
+
+        // ds(Excelのデータ) ⇒ まとめにあるように、「日付」を見て「仕入金額」を月別に合計して ⇒ sw(ファイルへ出力)
+        // 1. シート毎(foreach DataTable)に、(ただし「まとめ」シートは除く)
+        // 2. 先頭行から、「日付」と「仕入金額」の列を探し出して、dayとyenに列番号を入れる。
+        // 3. 「日付」は、テキストで 「yyyy/mm/dd」形式なので、前の7文字が共通な文字列は同じ月と考える。
+        // 4. 月(day)と仕入金額(yen)の構造体の配列を作り、仕入金額(yen)を月毎に合計していく。
+        // 5. シート毎に、各月(day)と仕入金額(yen)の合計を出力する。
+        private static void SumPurchasing(DataSet ds, StreamWriter sw) // Purchasing=仕入
+        {
+            foreach (DataTable tbl in ds.Tables)
+            {
+                sw.WriteLine($"TABLE {tbl.TableName}");
+                foreach (DataRow row in tbl.Rows)
+                {
+                    for (var i = 0; i < tbl.Columns.Count; i++)
+                    {
+                        sw.Write($"{row[i]} ");
                     }
                     sw.WriteLine("");
                 }
@@ -36,22 +58,22 @@ namespace ConsoleApp2
                 {
                     if (filenames.Contains('~'))
                     {
-                        sw.WriteLine("message=0<{0}> エクセルのテンポラリーファイルです。", filenames);
+                        sw.WriteLine($"ExcelDataRead(1):<{filenames}> エクセルのテンポラリーファイルです。");
                     }
                     else
                     {
-                        sw.WriteLine("message=1<{0}>", filenames);
+                        sw.WriteLine($"ExcelDataRead(2):<{filenames}>");
                         using FileStream stream = File.Open(filenames, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
                         System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
                         using IExcelDataReader reader = ExcelReaderFactory.CreateReader(stream);
                         DataSet ds = reader.AsDataSet();
-                        ReadExcelDataSet(ds, sw);
+                        SumPurchasing(ds, sw);
                     }
                 }
             }
             catch (Exception e)
             {
-                sw.WriteLine("ERROR in ExcelDataRead()<{0}>", e.Message);
+                sw.WriteLine($"ExcelDataRead(3):ERROR<{e.Message}>");
             }
         }
         private static void TextWrite()
@@ -74,7 +96,7 @@ namespace ConsoleApp2
             System.Diagnostics.Debug.WriteLine($"DEBUG:CopySourceFile(1):{pathnameDestination1}");
             System.Diagnostics.Debug.WriteLine($"DEBUG:CopySourceFile(2):{pathnameDestination2}");
             Console.WriteLine(pathnameDestination1);
-            Console.WriteLine(pathnameDestination1);
+            Console.WriteLine(pathnameDestination2);
         }
         static void Main(string[] args)
         {
