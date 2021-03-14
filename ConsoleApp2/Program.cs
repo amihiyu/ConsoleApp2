@@ -173,17 +173,20 @@ namespace ConsoleApp2
 						            }else{ 
                             //            System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-1):yenString=<{yenString}>");
                                         try{
-                                            if(yenString.Equals("")){
-                              //                System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-2):tbl.Rows.Count=<{tbl.Rows.Count}>");
-											}else{
-                                                double dyen = double.Parse(yenString);
-                                                int yen = Convert.ToInt32(dyen);
-                              //                  int yen = int.Parse(dyen);
-                                              System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(10-3):tbl.Rows.Count=<{tbl.Rows.Count}>");
+                                            int yen;
+                                            double dyen;
+                                            if(int.TryParse(yenString, out yen)){
                                                 if(ym > 0 & yen != 0){
-                    //                                purchase.AddSum(ym, yen);
+                                                    purchase.AddSum(ym, yen);
 				    		                    }
-                                            }
+											}else if(double.TryParse(yenString, out dyen)){
+                                                yen = Convert.ToInt32(dyen);
+                                                if(ym > 0 & yen != 0){
+                                                    purchase.AddSum(ym, yen);
+				    		                    }
+											}else{
+
+											}
                                         }catch(Exception e){
                                             System.Diagnostics.Debug.WriteLine($"DEBUG:SumPurchasing(11):yenString=<{yenString}> e=<{e}>");
 										}
